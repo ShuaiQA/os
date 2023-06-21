@@ -1,0 +1,2 @@
+1.usertrap 函数调用syscall函数
+2.其中a7的数字代表这SYS_exec，代表这用户程序进入系统调用SYS_exec
