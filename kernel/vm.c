@@ -77,6 +77,7 @@ void kvminithart() {
 //   21..29 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
+// 根据传入的虚拟地址来获取叶子pte
 pte_t *walk(pagetable_t pagetable, uint64 va, int alloc) {
   if (va >= MAXVA)
     panic("walk");
@@ -86,6 +87,7 @@ pte_t *walk(pagetable_t pagetable, uint64 va, int alloc) {
     if (*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
+      // 申请一个页表对其进行赋值
       if (!alloc || (pagetable = (pde_t *)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);

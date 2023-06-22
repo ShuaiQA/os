@@ -57,7 +57,29 @@ uint64 sys_sleep(void) {
 #ifdef LAB_PGTBL
 // 获取当前的页表的访问权限
 int sys_pgaccess(void) {
-  // lab pgtbl: your code here.
+  uint64 addr = 0;
+  argaddr(0, &addr);
+  int size = 0;
+  argint(1, &size);
+  if (size > 64) {
+    panic("size is too long");
+  }
+  uint64 mask = 0;
+  argaddr(2, &mask);
+  // 根据相应的用户addr虚拟地址,来访问对应的物理地址页表的访问(R/W)
+  uint64 ans = 0;
+  for (int i = 0; i < size; i++) {
+    pte_t *pte = walk(myproc()->pagetable, addr + i * PGSIZE, 0);
+    if ((*pte & PTE_D) == PTE_D) {
+      // 当前页面已经被访问过,修改ans的标识位
+      // printf("pte is %p\n", *pte);
+      ans |= (1 << i);
+    }
+  }
+  if (copyout(myproc()->pagetable, mask, (char *)&ans, sizeof(ans)) < 0) {
+    return -1;
+  }
+  // vmprint(myproc()->pagetable);
   return 0;
 }
 #endif
