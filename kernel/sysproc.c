@@ -68,18 +68,21 @@ int sys_pgaccess(void) {
   argaddr(2, &mask);
   // 根据相应的用户addr虚拟地址,来访问对应的物理地址页表的访问(R/W)
   uint64 ans = 0;
+
+  struct proc *pro = myproc();
+  acquire(&pro->lock);
   for (int i = 0; i < size; i++) {
     pte_t *pte = walk(myproc()->pagetable, addr + i * PGSIZE, 0);
-    if ((*pte & PTE_D) == PTE_D) {
+    if ((*pte & PTE_A) == PTE_A || (*pte & PTE_D) == PTE_D) {
       // 当前页面已经被访问过,修改ans的标识位
-      // printf("pte is %p\n", *pte);
+      *pte &= ~(PTE_A | PTE_D); // 清除标记位(修改全局变量需要上锁)
       ans |= (1 << i);
     }
   }
+  release(&pro->lock);
   if (copyout(myproc()->pagetable, mask, (char *)&ans, sizeof(ans)) < 0) {
     return -1;
   }
-  // vmprint(myproc()->pagetable);
   return 0;
 }
 #endif
