@@ -20,10 +20,10 @@ struct context {
 
 // Per-CPU state.
 struct cpu {
-  struct proc *proc;          // The process running on this cpu, or null.
-  struct context context;     // swtch() here to enter scheduler().
-  int noff;                   // Depth of push_off() nesting.
-  int intena;                 // Were interrupts enabled before push_off()?
+  struct proc *proc;      // The process running on this cpu, or null.
+  struct context context; // swtch() here to enter scheduler().
+  int noff;               // Depth of push_off() nesting.
+  int intena;             // Were interrupts enabled before push_off()?
 };
 
 extern struct cpu cpus[NCPU];
@@ -81,19 +81,26 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct time_save {
+  // 保存相关的寄存器的信息
+  uint64 epc, ra, sp, gp, tp, t0, t1, t2, s0, s1, a0, a1, a2, a3, a4, a5, a6,
+      a7, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, t3, t4, t5, t6;
+  uint64 over; // 下一个调用该函数需要等待本次调用完成
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
 
   // p->lock must be held when using these:
-  enum procstate state;        // Process state
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
-  int xstate;                  // Exit status to be returned to parent's wait
-  int pid;                     // Process ID
+  enum procstate state; // Process state
+  void *chan;           // If non-zero, sleeping on chan
+  int killed;           // If non-zero, have been killed
+  int xstate;           // Exit status to be returned to parent's wait
+  int pid;              // Process ID
 
   // wait_lock must be held when using this:
-  struct proc *parent;         // Parent process
+  struct proc *parent; // Parent process
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
@@ -104,4 +111,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int interval;
+  uint64 func;
+  uint64 last_call;
+  struct time_save save;
 };

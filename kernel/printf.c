@@ -127,16 +127,22 @@ void printfinit(void) {
   pr.locking = 1;
 }
 
+// 为了支持回溯,编译器会产生机器代码维持`栈帧`,反映了函数调用链
+// 每一个栈帧是由一个返回地址(ret)和指向调用栈帧的帧指针
+// 寄存器s0保存的是一个指针值(该值是当前的栈帧的地址),ret地址+8的位置
+// struct frame{
+//    uint64 ret_addr;      // 当前ret的值是在高地址(栈是从高向低进行增长的)
+//    frame *next_frame;    // 指向下一个栈帧,当前的地址是在ret地址-8
+// }
+// frame *first_frame = read_s0_reg
+// 当前的s0寄存器保存的第一个栈帧的地址(该值其实是指向的是ret_addr地址的末尾最后的地址)
+// 所以需要addr-8获取ret,以及addr-16获取下一个frame
 void backtrace() {
-  // 读取栈帧寄存器的值,放到一个指针中,需要解引用查找到return中的值
-  uint64 *fp = (uint64 *)r_fp();
-  printf("pid is %d\n", myproc()->pid);
-  printf("first fp is %p\n", fp);
-  while (fp != 0) {
-    // 其中ret的值放在fp地址的上面,减去8代表的call指令的地址
-    uint64 call = *(fp + 1) - 8;
-    printf("call is %p\n", call);
-    // 获取当前fp地址内的值,继续向上进行遍历
-    fp = (uint64 *)*fp;
+  uint64 fp = r_fp();
+  printf("backtrace:\n", fp);
+  while (PGROUNDUP(fp) - PGROUNDDOWN(fp) == PGSIZE) {
+    uint64 ret = *(uint64 *)(fp - 8);
+    printf("%p\n", ret);
+    fp = *(uint64 *)(fp - 16);
   }
 }

@@ -69,33 +69,34 @@ uservec:
 
 	# save the user a0 in p->trapframe->a0
         csrr t0, sscratch
+
         sd t0, 112(a0)
 
         # initialize kernel stack pointer, from p->trapframe->kernel_sp
-        ld sp, 8(a0)
+        ld sp, 8(a0)   # to kernel sp
 
         # make tp hold the current hartid, from p->trapframe->kernel_hartid
-        ld tp, 32(a0)
+        ld tp, 32(a0)  # hartid to tp
 
         # load the address of usertrap(), from p->trapframe->kernel_trap
-        ld t0, 16(a0)
+        ld t0, 16(a0)  # t0 to trap address 
 
 
         # fetch the kernel page table address, from p->trapframe->kernel_satp.
-        ld t1, 0(a0)
+        ld t1, 0(a0)   # kernel_satp 
 
         # wait for any previous memory operations to complete, so that
         # they use the user page table.
         sfence.vma zero, zero
 
         # install the kernel page table.
-        csrw satp, t1
+        csrw satp, t1  # set kernel_satp
 
         # flush now-stale user entries from the TLB.
-        sfence.vma zero, zero
+        sfence.vma zero, zero   
 
         # jump to usertrap(), which does not return
-        jr t0
+        jr t0   
 
 .globl userret
 userret:
