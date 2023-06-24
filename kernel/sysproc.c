@@ -102,7 +102,6 @@ uint64 sys_sigreturn(void) {
   p->trapframe->t2 = p->save.t2;
   p->trapframe->s0 = p->save.s0;
   p->trapframe->s1 = p->save.s1;
-  p->trapframe->a0 = p->save.a0;
   p->trapframe->a1 = p->save.a1;
   p->trapframe->a2 = p->save.a2;
   p->trapframe->a3 = p->save.a3;
@@ -124,5 +123,6 @@ uint64 sys_sigreturn(void) {
   p->trapframe->t4 = p->save.t4;
   p->trapframe->t5 = p->save.t5;
   p->trapframe->t6 = p->save.t6;
+  // 设置a0在别的地方
   return 0;
 }
