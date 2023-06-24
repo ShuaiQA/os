@@ -80,6 +80,9 @@ uint64 sys_uptime(void) {
 uint64 sys_sigalarm(void) {
   int interval = 0;
   argint(0, &interval);
+  if (interval < 0) {
+    return -1;
+  }
   uint64 func = 0;
   argaddr(1, &func);
   struct proc *p = myproc();

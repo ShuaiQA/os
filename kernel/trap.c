@@ -64,10 +64,10 @@ void usertrap(void) {
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2) {
     // 先让其输出alarm,查找所有的proc的last_call看是否与当前的sys_uptime的间隔大于interval
-    if (sys_uptime() >= p->interval + p->last_call && p->interval != 0 &&
-        p->save.over == 0) {
+    ++p->last_call;
+    if (p->interval <= p->last_call && p->interval != 0 && p->save.over == 0) {
       time_save(p);
-      p->last_call = sys_uptime();
+      p->last_call = 0;
       // sret指令是将epc的值放到pc寄存器中(为了执行相关的函数,设置的epc值)
       p->trapframe->epc = p->func;
       p->save.over = 1;
