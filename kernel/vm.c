@@ -288,15 +288,19 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz) {
       panic("uvmcopy: pte should exist");
     if ((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+
     pa = PTE2PA(*pte);
     // 对于每一个用户的物理页面,fork创建的进程来说(物理页面需要共享),共享的
     // flags & ~PTE_W | PTE_COW
-    flags = (PTE_FLAGS(*pte) & ~PTE_W) | PTE_COW;
-    // 设置old的pte
-    *pte = PA2PTE(pa) | flags;
+    flags = PTE_FLAGS(*pte);
+    if (flags & PTE_W) {
+      flags = (PTE_FLAGS(*pte) & ~PTE_W) | PTE_COW;
+      // 设置old的pte
+      *pte = PA2PTE(pa) | flags;
+    }
 
     // 设置new的pte
-    if (mappages(new, i, PGSIZE, (uint64)pa, flags) != 0) {
+    if (mappages(new, i, PGSIZE, pa, flags) != 0) {
       goto err;
     }
     addknum((void *)pa);
@@ -332,18 +336,8 @@ int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len) {
     if (pa0 == 0)
       return -1;
 
-    pte_t *pte = walk(pagetable, va0, 0); // 不创建物理页表访问pte
-    uint flags = PTE_FLAGS(*pte); // 访问最后物理页表的标识位
-    if (flags & PTE_COW) { // 由于写时复制的原因需要进行修改
-      void *mem = kalloc();
-      if (mem == 0) {
-        panic("mem too size");
-      }
-      memmove(mem, (void *)va0, PGSIZE);
-      flags = (flags | PTE_W) & ~PTE_COW;
-      *pte = PA2PTE(mem) | flags;
-      kfree((void *)pa0);
-      pa0 = (uint64)mem;
+    if (iscowpage(pagetable, va0) == 1) {
+      pa0 = (uint64)cowalloc(pagetable, va0);
     }
 
     n = PGSIZE - (dstva - va0);
@@ -422,32 +416,46 @@ int copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max) {
   }
 }
 
-void vmprint(pagetable_t pagetable) {
-  if (pagetable == 0) {
-    panic("pagetable is null");
+// 传入虚拟地址返回是否是cow页面,1是
+int iscowpage(pagetable_t pagetable, uint64 va) {
+  if (va >= MAXVA) {
+    return 0;
   }
-  printf("page table %p\n", pagetable);
-  for (int i = 0; i < 512; i++) {
-    pte_t pte = pagetable[i];
-    if ((pte & PTE_V) == 1) {
-      uint64 child = PTE2PA(pte);
-      printf(" ..%d: pte %p pa %p\n", i, pte, child);
-      pagetable_t ch = (pagetable_t)child;
-      for (int j = 0; j < 512; j++) {
-        pte_t la = ch[j];
-        if ((la & PTE_V) == 1) {
-          uint64 pa = PTE2PA(la);
-          printf(" .. ..%d: pte %p pa %p\n", j, la, pa);
-          pagetable_t cc = (pagetable_t)pa;
-          for (int k = 0; k < 512; k++) {
-            pte_t ll = cc[k];
-            if ((ll & PTE_V) == 1) {
-              uint64 pp = PTE2PA(ll);
-              printf(" .. .. ..%d: pte %p pa %p\n", k, ll, pp);
-            }
-          }
-        }
-      }
+  pte_t *pte = walk(pagetable, va, 0);
+  if (pte == 0) {
+    return 0;
+  }
+  if ((*pte & PTE_COW) == 0) {
+    return 0;
+  }
+  return (*pte & PTE_COW ? 1 : 0);
+}
+
+void *cowalloc(pagetable_t pagetable, uint64 va) {
+  uint64 pa = walkaddr(pagetable, va);
+  if (pa == 0) {
+    return 0;
+  }
+  pte_t *pte = walk(pagetable, va, 0);
+  if (getknum((void *)pa) == 1) {
+    *pte |= PTE_W;
+    *pte &= ~PTE_COW;
+    return (void *)pa;
+  } else {
+    void *mem = kalloc();
+    if (mem == 0) {
+      return 0;
     }
+    memmove(mem, (void *)pa, PGSIZE);
+
+    // *pte &= ~PTE_V;
+    uint flag = (PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W;
+    if (mappages(pagetable, va, PGSIZE, (uint64)mem, flag) != 0) {
+      kfree(mem);
+      // *pte |= PTE_V;
+      return 0;
+    }
+    kfree((void *)pa);
+    return mem;
   }
 }

@@ -98,3 +98,11 @@ void addknum(void *pa) {
   knum.num[(uint64)pa / PGSIZE]++;
   release(&knum.lock);
 }
+
+int getknum(void *pa) {
+  int num;
+  acquire(&knum.lock);
+  num = knum.num[(uint64)pa / PGSIZE];
+  release(&knum.lock);
+  return num;
+}

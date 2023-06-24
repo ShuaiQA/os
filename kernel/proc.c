@@ -296,10 +296,6 @@ int fork(void) {
   np->state = RUNNABLE;
   release(&np->lock);
 
-  if (p->pid == 3) {
-    vmprint(p->pagetable);
-  }
-
   return pid;
 }
 

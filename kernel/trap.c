@@ -60,30 +60,9 @@ void usertrap(void) {
   } else if (r_scause() == 0xc || r_scause() == 0xf ||
              r_scause() == 0xd) { // 发生了缺页异常
     uint64 fail_addr = r_stval();
-    printf("fail %p %d\n", fail_addr, p->pid);
-    if (fail_addr >= p->sz) { // 如果当前的虚拟地址超过了对应的sz大小,退出进程
+    if (fail_addr >= p->sz || iscowpage(p->pagetable, fail_addr) == 0 ||
+        cowalloc(p->pagetable, PGROUNDDOWN(fail_addr)) == 0) {
       p->killed = 1;
-    } else { // 处在相应的范围内,页面需要访问规则不符合,查看是否是fork写时复制的原因
-      pte_t *pte = walk(p->pagetable, fail_addr, 0); // 不创建物理页表访问pte
-      if (pte == 0) {
-        p->killed = 1;
-      } else {
-        uint flags = PTE_FLAGS(*pte); // 访问最后物理页表的标识位
-        if (flags & PTE_COW) { // 由于写时复制的原因需要进行修改
-          uint64 pa = PTE2PA(*pte);
-          void *mem = kalloc();
-          if (mem == 0) {
-            panic("mem too size");
-          }
-          memmove(mem, (void *)pa, PGSIZE);
-          flags = (flags | PTE_W) & ~PTE_COW;
-          *pte = PA2PTE(mem) | flags;
-          kfree((void *)pa);
-        } else {
-          p->killed = 1;
-          printf("00");
-        }
-      }
     }
   } else if ((which_dev = devintr()) != 0) {
     // ok
