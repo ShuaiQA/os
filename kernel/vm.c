@@ -304,6 +304,7 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz) {
       goto err;
     }
     addknum((void *)pa);
+    // printf("set over %d %d\n", i / PGSIZE, sz / PGSIZE);
   }
 
   return 0;
@@ -425,7 +426,7 @@ int iscowpage(pagetable_t pagetable, uint64 va) {
   if (pte == 0) {
     return 0;
   }
-  if ((*pte & PTE_COW) == 0) {
+  if ((*pte & PTE_V) == 0) {
     return 0;
   }
   return (*pte & PTE_COW ? 1 : 0);
@@ -437,25 +438,21 @@ void *cowalloc(pagetable_t pagetable, uint64 va) {
     return 0;
   }
   pte_t *pte = walk(pagetable, va, 0);
-  if (getknum((void *)pa) == 1) {
-    *pte |= PTE_W;
-    *pte &= ~PTE_COW;
-    return (void *)pa;
-  } else {
-    void *mem = kalloc();
-    if (mem == 0) {
-      return 0;
-    }
-    memmove(mem, (void *)pa, PGSIZE);
-
-    // *pte &= ~PTE_V;
-    uint flag = (PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W;
-    if (mappages(pagetable, va, PGSIZE, (uint64)mem, flag) != 0) {
-      kfree(mem);
-      // *pte |= PTE_V;
-      return 0;
-    }
-    kfree((void *)pa);
-    return mem;
+  void *mem = kalloc();
+  if (mem == 0) {
+    panic("mem too samil");
+    return 0;
   }
+  memmove(mem, (void *)pa, PGSIZE);
+
+  // 注意当前的进程的虚拟地址已经有了一个映射了,如果要修改已经映射的页面
+  // 需要设置PTE_V = 0
+  *pte &= ~PTE_V;
+  uint flag = (PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W;
+  if (mappages(pagetable, va, PGSIZE, (uint64)mem, flag) != 0) {
+    kfree(mem);
+    return 0;
+  }
+  kfree((void *)pa);
+  return mem;
 }

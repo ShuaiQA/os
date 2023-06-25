@@ -57,9 +57,13 @@ void usertrap(void) {
     intr_on();
 
     syscall();
-  } else if (r_scause() == 0xc || r_scause() == 0xf ||
-             r_scause() == 0xd) { // 发生了缺页异常
+  } else if (
+      // 发生了缺页异常为什么这么多的缺页异常号,不是应该只有0xc吗
+      r_scause() == 0xc || r_scause() == 0xf || r_scause() == 0xd) {
     uint64 fail_addr = r_stval();
+    // 查看sys_sbrk发现在在分配的时候就已经设置好了页面了(并不是在写的时候在分配页面)
+    // 所以当前的缺页异常的时候不需要在分配内存了,修改的页面必定是cow页面
+    // 然后就是对cow页面进行重新分配内存
     if (fail_addr >= p->sz || iscowpage(p->pagetable, fail_addr) == 0 ||
         cowalloc(p->pagetable, PGROUNDDOWN(fail_addr)) == 0) {
       p->killed = 1;
