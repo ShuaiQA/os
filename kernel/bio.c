@@ -40,7 +40,6 @@ static char *s[13] = {
 // 在bget中选择refcnt==0的缓冲区进行删除,release并不需要获取全局锁
 // 在替换块的时候可能将一个桶中的buf放到另一个桶中
 struct {
-  struct spinlock lock;
   struct buf buf[NBUF];
 
   // Linked list of all buffers, through prev/next.
@@ -54,7 +53,6 @@ struct {
 void binit(void) {
   struct buf *b;
 
-  initlock(&bcache.lock, "bcache");
   for (int i = 0; i < BUCKET_SIZE; i++) {
     initlock(&bcache.bucket[i], s[i]);
     // Create linked list of buffers
@@ -125,6 +123,7 @@ static struct buf *bget(uint dev, uint blockno) {
         b->valid = 0;
         b->refcnt = 1;
         acquiresleep(&b->lock);
+        break;
       }
     }
     if (b != &bcache.head[i]) { // 已经找到了一个buf
@@ -133,6 +132,8 @@ static struct buf *bget(uint dev, uint blockno) {
       b->next->prev = b->prev;
       b->prev->next = b->next;
       // add head
+      b->next = bcache.head[pos].next;
+      b->prev = &bcache.head[pos];
       bcache.head[pos].next->prev = b;
       bcache.head[pos].next = b;
       release(&bcache.bucket[i]);
@@ -144,16 +145,6 @@ static struct buf *bget(uint dev, uint blockno) {
   }
   release(&bcache.bucket[pos]);
 
-  // 简单的调试信息
-  // 1.为什么会发生,重复的设备和块在缓冲区中
-  for (int i = 0; i < BUCKET_SIZE; i++) {
-    acquire(&bcache.bucket[i]);
-    for (b = bcache.head[i].prev; b != &bcache.head[i]; b = b->prev) {
-      printf("bucket is %d refcnt is %d  dev %d  blockno %d\n", i, b->refcnt,
-             b->dev, b->blockno);
-    }
-    release(&bcache.bucket[i]);
-  }
   panic("bget: no buffers");
 }
 
