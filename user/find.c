@@ -4,6 +4,7 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+// 从后向前找到最后的path的name
 char *fmtname(char *path) {
   static char buf[DIRSIZ + 1];
   char *p;
@@ -21,47 +22,43 @@ char *fmtname(char *path) {
   return buf;
 }
 
-void ls(char *path) {
-  char buf[512], *p;
+void find(char *path, char *name, char *buf, char *p) {
   int fd;
   struct dirent de;
   struct stat st;
 
   if ((fd = open(path, 0)) < 0) {
-    fprintf(2, "ls: cannot open %s\n", path);
+    fprintf(2, "find: cannot open %s\n", path);
     return;
   }
 
   if (fstat(fd, &st) < 0) {
-    fprintf(2, "ls: cannot stat %s\n", path);
+    fprintf(2, "find: cannot stat %s\n", path);
     close(fd);
     return;
   }
+  strcpy(buf, path);
+  p = buf + strlen(buf);
 
   switch (st.type) {
   case T_DEVICE:
   case T_FILE:
-    printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
-    break;
-
-  case T_DIR:
-    if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf) {
-      printf("ls: path too long\n");
-      break;
+    if (strncmp(fmtname(path), name, strlen(name)) == 0) { //
+      printf("%s\n", buf);
     }
-    strcpy(buf, path);
-    p = buf + strlen(buf);
+    break;
+  case T_DIR:
+    // (每一次读取目录中的大小是dirent结构体中的数据获取文件的名字)
     *p++ = '/';
     while (read(fd, &de, sizeof(de)) == sizeof(de)) {
       if (de.inum == 0)
         continue;
-      memmove(p, de.name, DIRSIZ);
-      p[DIRSIZ] = 0;
-      if (stat(buf, &st) < 0) {
-        printf("ls: cannot stat %s\n", buf);
+      if (strcmp(".", de.name) == 0 || strcmp("..", de.name) == 0) {
         continue;
       }
-      printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+      memmove(p, de.name, DIRSIZ); // 将目录中的内容放到buf中指针p
+      p[DIRSIZ] = 0;
+      find(buf, name, buf, p);
     }
     break;
   }
@@ -69,13 +66,13 @@ void ls(char *path) {
 }
 
 int main(int argc, char *argv[]) {
-  int i;
-
-  if (argc < 2) {
-    ls(".");
-    exit(0);
+  if (argc < 3) {
+    fprintf(2, "usage: find [file ...]\n");
+    exit(1);
   }
-  for (i = 1; i < argc; i++)
-    ls(argv[i]);
+  char buf[512];
+  char *p = buf;
+
+  find(argv[1], argv[2], buf, p);
   exit(0);
 }
