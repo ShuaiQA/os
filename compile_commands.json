@@ -1,0 +1,29 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/riscv64-linux-gnu-gcc",
+      "-Wall",
+      "-Werror",
+      "-O",
+      "-fno-omit-frame-pointer",
+      "-ggdb",
+      "-gdwarf-2",
+      "-DSOL_FS",
+      "-DLAB_FS",
+      "-mcmodel=medany",
+      "-ffreestanding",
+      "-fno-common",
+      "-mno-relax",
+      "-I.",
+      "-fno-stack-protector",
+      "-fno-pie",
+      "-c",
+      "-o",
+      "user/symlinktest.o",
+      "user/symlinktest.c"
+    ],
+    "directory": "/home/shuai/os",
+    "file": "/home/shuai/os/user/symlinktest.c",
+    "output": "/home/shuai/os/user/symlinktest.o"
+  }
+]
