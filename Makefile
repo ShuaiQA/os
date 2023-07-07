@@ -305,15 +305,21 @@ QEMUOPTS += -netdev user,id=net0,hostfwd=udp::$(FWDPORT)-:2000 -object filter-du
 QEMUOPTS += -device e1000,netdev=net0,bus=pcie.0
 endif
 
-qemu: $K/kernel fs.img
-	$(QEMU) $(QEMUOPTS)
-
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
+
+qemu: $K/kernel fs.img
+	$(QEMU) $(QEMUOPTS)
 
 qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+gdb: $K/kernel gdbinit fs.img
+	$(QEMU) $(QEMUOPTS) -s -S
+
+gdb-target: $K/kernel gdbinit fs.img
+	gdb-multiarch $K/kernel -q -x gdbinit
 
 ifeq ($(LAB),net)
 # try to generate a unique port for the echo server
